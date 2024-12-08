@@ -7,20 +7,20 @@ export default function InvoiceStatus({ status }: { status: string }) {
       className={clsx(
         'inline-flex items-center rounded-full px-2 py-1 text-xs',
         {
-          'bg-gray-100 text-gray-500': status === 'pending',
-          'bg-green-500 text-white': status === 'paid',
+          'bg-gray-100 text-gray-500': status === '即将开始',
+          'bg-green-500 text-white': status === '正在进行',
         },
       )}
     >
-      {status === 'pending' ? (
+      {status === '即将开始' ? (
         <>
-          Pending
+          即将开始
           <ClockIcon className="ml-1 w-4 text-gray-500" />
         </>
       ) : null}
-      {status === 'paid' ? (
+      {status === '正在进行' ? (
         <>
-          Paid
+          正在进行
           <CheckIcon className="ml-1 w-4 text-white" />
         </>
       ) : null}
