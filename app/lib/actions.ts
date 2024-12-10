@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { db } from "@vercel/postgres";
+import { client } from "@/app/lib/db/postgres";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -15,8 +15,6 @@ const FormSchema = z.object({
   status: z.enum(["pending", "paid"]),
   date: z.string(),
 });
-
-const client = await db.connect();
 
 const CreateInvoice = FormSchema.omit({ id: true, date: true });
 
