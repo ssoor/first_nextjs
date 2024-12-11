@@ -8,6 +8,35 @@ import { redirect } from "next/navigation";
 import { signIn } from "@/auth";
 import { AuthError } from "next-auth";
 
+const AuctionFormSchema = z.object({
+  id: z.coerce.number(),
+  price: z.coerce.number(),
+  address: z.string(),
+  status: z.enum(["listened", "started", "paused", "stoped"]),
+});
+
+const CreateAuction = AuctionFormSchema.omit({ price: true, address: true });
+export async function createAuction(formData: FormData): Promise<void> {
+  const rawFormData = Object.fromEntries(formData.entries());
+
+  const body = CreateAuction.parse(rawFormData);
+
+  const auctions = await fetch("http://localhost:8080/auction", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    redirect: "follow",
+  });
+  if (auctions.status == 200) {
+    revalidatePath("/dashboard/invoices");
+    redirect("/dashboard/invoices");
+  }
+
+  throw new Error("创建拍卖任务失败");
+}
+
 const FormSchema = z.object({
   id: z.string(),
   customerId: z.string(),
@@ -18,7 +47,7 @@ const FormSchema = z.object({
 
 const CreateInvoice = FormSchema.omit({ id: true, date: true });
 
-export async function createInvoice(formData: FormData) {
+export async function createInvoice(formData: FormData): Promise<void> {
   //   const rawFormData = {
   //     customerId: formData.get("customerId"),
   //     amount: formData.get("amount"),

@@ -1,5 +1,9 @@
 import Image from "next/image";
-import { UpdateInvoice, DeleteInvoice } from "@/app/ui/invoices/buttons";
+import {
+  UpdateInvoice,
+  DeleteInvoice,
+  CreateInvoice,
+} from "@/app/ui/invoices/buttons";
 import InvoiceStatus from "@/app/ui/invoices/status";
 import { formatDateToLocal, formatCurrency } from "@/app/lib/utils";
 import { fetchFilteredInvoices, fetchAuctions } from "@/app/lib/data";
@@ -15,7 +19,6 @@ export default async function InvoicesTable({
   currentPage: number;
 }) {
   const auctions = await fetchAuctions(query, status, currentPage);
-
 
   return (
     <div className="mt-6 flow-root">
@@ -51,6 +54,7 @@ export default async function InvoicesTable({
                     <p>{formatDateToLocal(auction.end_timestamp)}</p>
                   </div>
                   <div className="flex justify-end gap-2">
+                    <CreateInvoice id={"1"} />
                     <UpdateInvoice id={"1"} />
                     <DeleteInvoice id={"1"} />
                   </div>
@@ -103,7 +107,7 @@ export default async function InvoicesTable({
                     {`${auction.quality}`}
                   </td>
                   <td className="whitespace-nowrap px-3 py-3">
-                    {formatCurrency(auction.capped_price)}
+                    {formatCurrency(auction.current_price)}
                   </td>
                   <td className="whitespace-nowrap px-3 py-3">
                     <RemainDate timestamp={auction.end_timestamp} />
@@ -113,8 +117,14 @@ export default async function InvoicesTable({
                   </td>
                   <td className="whitespace-nowrap py-3 pl-6 pr-3">
                     <div className="flex justify-end gap-3">
-                      <UpdateInvoice id={"1"} />
-                      <DeleteInvoice id={"1"} />
+                      {auction.listened ? (
+                        <>
+                          <UpdateInvoice id={auction.id} />
+                          <DeleteInvoice id={auction.id} />
+                        </>
+                      ) : (
+                        <CreateInvoice id={auction.id} />
+                      )}
                     </div>
                   </td>
                 </tr>

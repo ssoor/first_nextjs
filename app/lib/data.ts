@@ -13,8 +13,9 @@ import { formatCurrency } from "./utils";
 export async function fetchAuctions(query: string, status: string, currentPage: number) {
   const params = new URLSearchParams({ status: status.toString() });
   params.append("page", currentPage.toString());
+  params.append("query", query);
 
-  const url = `http://localhost:8080/serach/${encodeURIComponent(query)}?${params.toString()}`;
+  const url = `http://localhost:8080/product?${params.toString()}`;
   console.log(url);
 
   const auctions = await fetch(url, { cache: "no-cache" });

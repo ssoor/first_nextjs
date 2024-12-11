@@ -15,6 +15,7 @@ export type Auction = {
   quality: string;
   primary_pic: string;
   status: string;
+  listened: boolean;
   capped_price: number;
   current_price: number;
   current_bidder: string;
