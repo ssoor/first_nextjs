@@ -9,7 +9,7 @@ import { cn } from "@/app/lib/utils"
 
 type SelectContextValue = {
   value?: string;
-  setValue?: React.Dispatch<React.SetStateAction<string | undefined>>;
+  onCleanValue?: () => void;
 };
 
 
@@ -19,14 +19,12 @@ const SelectContext = React.createContext<SelectContextValue>({});
 // const Select = SelectPrimitive.Root
 const Select: React.FC<SelectPrimitive.SelectProps> = ({ children, ...props }) => {
   const [value, setValue] = React.useState(props.value);
-  console.log(props);
   return (
     <SelectPrimitive.Root
       {...props}
       value={value}
-      onValueChange={(value) => setValue(value)}
     >
-      <SelectContext.Provider value={{ value,setValue }}>
+      <SelectContext.Provider value={{ value, onCleanValue: () => { setValue(''); } }}>
         {children}
       </SelectContext.Provider>
     </SelectPrimitive.Root>
@@ -36,38 +34,35 @@ Select.displayName = 'Select.Root';
 
 const SelectGroup = SelectPrimitive.Group
 
-const SelectValue = React.forwardRef<
-  React.ElementRef<typeof SelectPrimitive.Value>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Value>
->((data, ref) => {
-  const { placeholder, children, ...props } = data;
+const SelectValue = SelectPrimitive.Value
+// const SelectValue = React.forwardRef<
+//   React.ElementRef<typeof SelectPrimitive.Value>,
+//   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Value>
+// >((data, ref) => {
+//   const { placeholder, children, ...props } = data;
 
-  const { value,setValue } = React.useContext(SelectContext);
+//   const { value, onCleanValue } = React.useContext(SelectContext);
 
-  console.log(data, props, React.useContext(SelectContext));
+//   return (
+//     <>
+//       <SelectPrimitive.Value
+//         ref={ref}
+//         placeholder={value ? <span>{'!!!'}</span> : placeholder}
+//         {...props}
+//       />
 
-  return (
-    <>
-      <SelectPrimitive.Value
-        ref={ref}
-        placeholder={value ? <span>{value}</span> : placeholder}
-        {...props}
-      />
-
-        {value ? <button className="hover:bg-gray-100" onClick={e=> { e.preventDefault(),console.log("!!!"),setValue!('')}} >
-          <X className="h-4 w-4 opacity-50" />
-        </button> : <ChevronDown className="h-4 w-4 opacity-50" />}
-        {/* {value ? <X className="h-4 w-4 opacity-50" /> : <ChevronDown className="h-4 w-4 opacity-50" />} */}
-    </>
-  )
-})
+//       {value ? <div className="hover:bg-gray-100" onClick={(e) => onCleanValue!()} >
+//         <X className="h-4 w-4 opacity-50" />
+//       </div> : <ChevronDown className="h-4 w-4 opacity-50" />}
+//       {/* {value ? <X className="h-4 w-4 opacity-50" /> : <ChevronDown className="h-4 w-4 opacity-50" />} */}
+//     </>
+//   )
+// })
 
 const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
 >(({ className, children, ...props }, ref) => {
-  console.log(children, props);
-
   return (
     <SelectPrimitive.Trigger
       ref={ref}

@@ -3,15 +3,19 @@ import { UpdateInvoice, DeleteInvoice } from "@/app/ui/invoices/buttons";
 import InvoiceStatus from "@/app/ui/invoices/status";
 import { formatDateToLocal, formatCurrency } from "@/app/lib/utils";
 import { fetchFilteredInvoices, fetchAuctions } from "@/app/lib/data";
+import RemainDate from "./RemainDate";
 
 export default async function InvoicesTable({
   query,
+  status,
   currentPage,
 }: {
   query: string;
+  status: string;
   currentPage: number;
 }) {
-  const auctions = await fetchAuctions(query, currentPage);
+  const auctions = await fetchAuctions(query, status, currentPage);
+
 
   return (
     <div className="mt-6 flow-root">
@@ -67,7 +71,7 @@ export default async function InvoicesTable({
                   当前价
                 </th>
                 <th scope="col" className="px-3 py-5 font-medium">
-                  结束时间
+                  距离结束
                 </th>
                 <th scope="col" className="px-3 py-5 font-medium">
                   状态
@@ -92,7 +96,7 @@ export default async function InvoicesTable({
                         height={100}
                         alt={`${auction.name}'s profile picture`}
                       />
-                      <p>{auction.name.substring(0,32)}</p>
+                      <p>{auction.name.substring(0, 32)}</p>
                     </div>
                   </td>
                   <td className="whitespace-nowrap px-3 py-3">
@@ -102,7 +106,7 @@ export default async function InvoicesTable({
                     {formatCurrency(auction.capped_price)}
                   </td>
                   <td className="whitespace-nowrap px-3 py-3">
-                    {formatDateToLocal(auction.end_timestamp)}
+                    <RemainDate timestamp={auction.end_timestamp} />
                   </td>
                   <td className="whitespace-nowrap px-3 py-3">
                     <InvoiceStatus status={auction.status} />

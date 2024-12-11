@@ -10,18 +10,14 @@ import {
 } from "./definitions";
 import { formatCurrency } from "./utils";
 
-export async function fetchAuctions(query: string, currentPage: number) {
-  const params = new URLSearchParams({ status: "1" });
+export async function fetchAuctions(query: string, status: string, currentPage: number) {
+  const params = new URLSearchParams({ status: status.toString() });
   params.append("page", currentPage.toString());
 
-  console.log("http://localhost:8080/serach/?" + params.toString());
+  const url = `http://localhost:8080/serach/${encodeURIComponent(query)}?${params.toString()}`;
+  console.log(url);
 
-  const auctions = await fetch(
-    `http://localhost:8080/serach/${encodeURIComponent(
-      query
-    )}?${params.toString()}`,
-    { cache: "force-cache" }
-  );
+  const auctions = await fetch(url, { cache: "no-cache" });
 
   return (await auctions.json()) as Auction[];
 }

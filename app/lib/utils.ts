@@ -9,6 +9,27 @@ export const formatCurrency = (amount: number) => {
   });
 };
 
+export const formatRemainDate = (
+  timestamp: number,
+  locale: string = 'zh-CN',
+) => {
+  let remain = ((timestamp - (new Date()).getTime()));
+
+  if (remain < 0) {
+    remain = 0;
+  }
+
+  const hour = Math.floor(remain / (60 * 60 * 1000));
+  const minute = Math.round(remain / (60 * 1000) % 60);
+  const second = Math.round(remain / (1000) % 60);
+
+  return {
+    hour,
+    minute,
+    second,
+  };
+};
+
 export const formatDateToLocal = (
   dateStr: number,
   locale: string = 'zh-CN',
@@ -18,11 +39,12 @@ export const formatDateToLocal = (
     day: 'numeric',
     month: 'numeric',
     year: 'numeric',
-    hour:'numeric',
-    minute:'numeric',
-    second:'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
   };
   const formatter = new Intl.DateTimeFormat(locale, options);
+
   return formatter.format(date);
 };
 
