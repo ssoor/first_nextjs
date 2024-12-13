@@ -1,13 +1,11 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -71,39 +69,6 @@ func Test_T2(t *testing.T) {
 	t.Fatal("成功")
 }
 
-func evalJS(vm *goja.Runtime, regex string, body []byte) []byte {
-	callRegex, err := regexp.Compile(regex)
-	if err != nil {
-		panic(err)
-	}
-
-	for {
-		matchIndex := callRegex.FindIndex(body)
-		if matchIndex == nil {
-			break
-		}
-
-		v := string(body[matchIndex[0]:matchIndex[1]])
-		val, err := vm.RunString(v)
-		if err != nil {
-			panic(err)
-		}
-
-		valJSON, err := json.Marshal(val.String())
-		if err != nil {
-			panic(err)
-		}
-		newBody := append([]byte{}, body[:matchIndex[0]]...)
-		newBody = append(newBody, valJSON...)
-		newBody = append(newBody, body[matchIndex[1]:]...)
-
-		body = newBody
-		fmt.Printf("matchStrs = %v = %v\n", v, val.String())
-	}
-
-	return body
-}
-
 func Test_dbd_ProductSearch(t *testing.T) {
 	body, err := os.ReadFile("./pc-tk.js2")
 	if err != nil {
@@ -117,9 +82,9 @@ func Test_dbd_ProductSearch(t *testing.T) {
 		panic(err)
 	}
 
-	body = evalJS(vm, `_0x2e0a6d\(\d+\)`, body)
-	body = evalJS(vm, `_0x201a\(\d+\)`, body)
-	body = evalJS(vm, `[_coidtraesn]\(\d+\)`, body)
+	body = evalJSAlias(vm, `_0x2e0a6d\(\d+\)`, "", body)
+	body = evalJSAlias(vm, `_0x201a\(\d+\)`, "", body)
+	body = evalJSAlias(vm, `[_coidtraesn]\(\d+\)`, "", body)
 
 	bodyStr := string(body)
 	bodyStr = strings.ReplaceAll(bodyStr, "t.call(r, e[n], n, e) === {})", "false)")

@@ -10,6 +10,7 @@ import { AuthError } from "next-auth";
 
 const AuctionFormSchema = z.object({
   id: z.coerce.number(),
+  type: z.coerce.number(),
   price: z.coerce.number(),
   address: z.string(),
   status: z.enum(["listened", "started", "paused", "stoped"]),

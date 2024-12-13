@@ -54,9 +54,9 @@ export default async function InvoicesTable({
                     <p>{formatDateToLocal(auction.end_timestamp)}</p>
                   </div>
                   <div className="flex justify-end gap-2">
-                    <CreateInvoice id={"1"} />
-                    <UpdateInvoice id={"1"} />
-                    <DeleteInvoice id={"1"} />
+                    <CreateInvoice id={auction.id} />
+                    <UpdateInvoice id={auction.id} />
+                    <DeleteInvoice id={auction.id} />
                   </div>
                 </div>
               </div>
@@ -73,6 +73,9 @@ export default async function InvoicesTable({
                 </th>
                 <th scope="col" className="px-3 py-5 font-medium">
                   当前价
+                </th>
+                <th scope="col" className="px-3 py-5 font-medium">
+                  结束时间
                 </th>
                 <th scope="col" className="px-3 py-5 font-medium">
                   距离结束
@@ -108,6 +111,11 @@ export default async function InvoicesTable({
                   </td>
                   <td className="whitespace-nowrap px-3 py-3">
                     {formatCurrency(auction.current_price)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-3">
+                    <span className={`bg-gray-100 text-gray-500 font-medium p-1 m-1 rounded`}>
+                      {formatDateToLocal(auction.end_timestamp)}
+                    </span>
                   </td>
                   <td className="whitespace-nowrap px-3 py-3">
                     <RemainDate timestamp={auction.end_timestamp} />

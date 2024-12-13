@@ -25,12 +25,12 @@ const (
 	APIReferer      = "https://paipai.m.jd.com/"
 )
 
-type dbd struct {
+type dbdClient struct {
 	client  *http.Client
 	cookies *cookiejar.Jar
 }
 
-func NewDBD() (*dbd, error) {
+func NewDBD() (*dbdClient, error) {
 	ckj, err := cookiejar.New(nil)
 	if err != nil {
 		return nil, err
@@ -40,13 +40,13 @@ func NewDBD() (*dbd, error) {
 		Jar: ckj,
 	}
 
-	return &dbd{
+	return &dbdClient{
 		client:  c,
 		cookies: ckj,
 	}, nil
 }
 
-func (m dbd) request(method string, path string, params url.Values, headers http.Header, body io.Reader) (*http.Response, error) {
+func (m dbdClient) request(method string, path string, params url.Values, headers http.Header, body io.Reader) (*http.Response, error) {
 	u, err := url.Parse(fmt.Sprintf("https://%s", APIFunctionHost))
 	u.Path = path
 	u.RawQuery = params.Encode()
@@ -68,7 +68,7 @@ type JSToken struct {
 	DeMap interface{} `json:"deMap"`
 }
 
-func (m dbd) getApiEIDToken() (*JSToken, error) {
+func (m dbdClient) getApiEIDToken() (*JSToken, error) {
 	vm := goja.New()
 	jsScript2, _ := os.ReadFile("./getJsToken.js")
 	_, err := vm.RunString(string(jsScript2))
@@ -151,7 +151,7 @@ func (m dbd) getApiEIDToken() (*JSToken, error) {
 	return &respStruct.Data, nil
 }
 
-func (m dbd) callFunction(method string, functionId string, bodyParams map[string]interface{}) (reqsp *http.Response, err error) {
+func (m dbdClient) callFunction(method string, functionId string, bodyParams map[string]interface{}) (reqsp *http.Response, err error) {
 	t := strconv.FormatInt(time.Now().UnixMilli(), 10)
 
 	params := url.Values{}
@@ -189,7 +189,7 @@ func (m dbd) callFunction(method string, functionId string, bodyParams map[strin
 
 	return m.request(method, APIFunctionPath, params, headers, bytes.NewBuffer(bodyJSON))
 }
-func (m dbd) callFunctionEx(method string, functionId string, bodyParams map[string]interface{}, outResp interface{}) (err error) {
+func (m dbdClient) callFunctionEx(method string, functionId string, bodyParams map[string]interface{}, outResp interface{}) (err error) {
 	resp, err := m.callFunction(method, functionId, bodyParams)
 	if err != nil {
 		return err
@@ -204,6 +204,7 @@ func (m dbd) callFunctionEx(method string, functionId string, bodyParams map[str
 	if err != nil {
 		return err
 	}
+	fmt.Println(string(bodyBin))
 
 	respStruct := struct {
 		Code    interface{} `json:"code"` // 有两种返回 "1"+echo,0+message
@@ -236,7 +237,7 @@ func (m dbd) callFunctionEx(method string, functionId string, bodyParams map[str
 	return nil
 }
 
-func (m dbd) RangeCookie(cb func(name, value string) bool) {
+func (m dbdClient) RangeCookie(cb func(name, value string) bool) {
 	targetURL, err := url.Parse("https://paipai.jd.com")
 	if err != nil {
 		panic(err)
@@ -250,7 +251,7 @@ func (m dbd) RangeCookie(cb func(name, value string) bool) {
 	}
 }
 
-func (m dbd) SetCookie(cookie string) {
+func (m dbdClient) SetCookie(cookie string) {
 	targetURL, err := url.Parse("https://paipai.jd.com")
 	if err != nil {
 		panic(err)
@@ -273,13 +274,13 @@ func (m dbd) SetCookie(cookie string) {
 	m.cookies.SetCookies(targetURL, cookies)
 }
 
-func (m dbd) AuctionDetail(id int) (*DBDAuctionDetail, error) {
+func (m dbdClient) AuctionDetail(id int) (*DBDAuctionDetail, error) {
 	body := map[string]interface{}{
 		"t":             time.Now().UnixMilli(),
 		"auctionId":     id,
 		"dbdApiVersion": "20200623",
 	}
-	functionID := "paipai.auction.detail"
+	functionID := "dbd.auction.detail.v2"
 
 	data := DBDAuctionDetail{}
 	if err := m.callFunctionEx("GET", functionID, body, &data); err != nil {
@@ -298,7 +299,23 @@ func (m dbd) AuctionDetail(id int) (*DBDAuctionDetail, error) {
 	return &data, nil
 }
 
-func (m dbd) ProductPrice(id int, address string, price float64) (map[int]DBDProductBidder, error) {
+func (m dbdClient) AuctionPriceInfo(id int) (*DBDAuctionAddress, error) {
+	body := map[string]interface{}{
+		"auctionId": id,
+		"mpSource":  1,
+		"sourceTag": 2,
+	}
+	functionID := "dbd.auction.detail.saleInfo"
+
+	data := DBDAuctionAddress{}
+	if err := m.callFunctionEx("GET", functionID, body, &data); err != nil {
+		return nil, err
+	}
+
+	return &data, nil
+}
+
+func (m dbdClient) AuctionPrice(id int, address string, price float64) error {
 	eid := ""
 	m.RangeCookie(func(name, value string) bool {
 		if name == APIEIDKey {
@@ -309,7 +326,7 @@ func (m dbd) ProductPrice(id int, address string, price float64) (map[int]DBDPro
 		return true
 	})
 	if eid == "" {
-		return nil, fmt.Errorf("没有找到可用的 EID")
+		return fmt.Errorf("没有找到可用的 EID")
 	}
 
 	body := map[string]interface{}{
@@ -324,6 +341,48 @@ func (m dbd) ProductPrice(id int, address string, price float64) (map[int]DBDPro
 
 	resp, err := m.callFunction("POST", functionID, body)
 	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	bodyBin, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	respStruct := struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Result  struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"result"`
+	}{}
+
+	if err := json.Unmarshal(bodyBin, &respStruct); err != nil {
+		return err
+	}
+
+	if respStruct.Code != 0 {
+		return fmt.Errorf("resp: %v=%v", respStruct.Code, respStruct.Message)
+	}
+	if respStruct.Result.Code != 200 {
+		return fmt.Errorf("resp.result: %v=%v", respStruct.Result.Code, respStruct.Result.Message)
+	}
+
+	return nil
+}
+
+func (m dbdClient) AuctionCurrentPrice(id int) (*DBDAuctionCurrentPrice, error) {
+	body := map[string]interface{}{
+		"auctionId": id,
+		"mpSource":  1,
+		"sourceTag": 2,
+	}
+	functionID := "paipai.auction.get_current_and_offerNum"
+
+	resp, err := m.callFunction("POST", functionID, body)
+	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -333,12 +392,15 @@ func (m dbd) ProductPrice(id int, address string, price float64) (map[int]DBDPro
 		return nil, err
 	}
 
+	fmt.Println(string(bodyBin))
+
 	respStruct := struct {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
 		Result  struct {
-			Code    int    `json:"code"`
-			Message string `json:"message"`
+			Code    int                    `json:"code"`
+			Message string                 `json:"message"`
+			Data    DBDAuctionCurrentPrice `json:"data"`
 		} `json:"result"`
 	}{}
 
@@ -353,10 +415,55 @@ func (m dbd) ProductPrice(id int, address string, price float64) (map[int]DBDPro
 		return nil, fmt.Errorf("resp.result: %v=%v", respStruct.Result.Code, respStruct.Result.Message)
 	}
 
-	return nil, nil
+	return &respStruct.Result.Data, nil
 }
 
-func (m dbd) ProductBidder(ids ...int) (map[int]DBDProductBidder, error) {
+func (m dbdClient) AuctionPriceRecords(id int) ([]DBDAuctionPriceRecord, error) {
+	body := map[string]interface{}{
+		"auctionId": id,
+		"mpSource":  1,
+		"sourceTag": 2,
+	}
+	functionID := "paipai.auction.bidrecords"
+
+	resp, err := m.callFunction("POST", functionID, body)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	bodyBin, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println(string(bodyBin))
+
+	respStruct := struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Result  struct {
+			Code    int                     `json:"code"`
+			Message string                  `json:"message"`
+			Data    []DBDAuctionPriceRecord `json:"data"`
+		} `json:"result"`
+	}{}
+
+	if err := json.Unmarshal(bodyBin, &respStruct); err != nil {
+		return nil, err
+	}
+
+	if respStruct.Code != 0 {
+		return nil, fmt.Errorf("resp: %v=%v", respStruct.Code, respStruct.Message)
+	}
+	if respStruct.Result.Code != 200 {
+		return nil, fmt.Errorf("resp.result: %v=%v", respStruct.Result.Code, respStruct.Result.Message)
+	}
+
+	return respStruct.Result.Data, nil
+}
+
+func (m dbdClient) ProductBidder(ids ...int) (map[int]DBDProductBidder, error) {
 	actionIDs := []string{}
 	for _, v := range ids {
 		actionIDs = append(actionIDs, strconv.Itoa(v))
@@ -387,7 +494,7 @@ func (m dbd) ProductBidder(ids ...int) (map[int]DBDProductBidder, error) {
 	return bidders, nil
 }
 
-func (m dbd) ProductSearch(query string, status string, page int) ([]DBDProductInfo, error) {
+func (m dbdClient) ProductSearch(query string, status string, page int) ([]DBDProductInfo, error) {
 	body := map[string]interface{}{
 		"pageNo":    page,
 		"pageSize":  20,
