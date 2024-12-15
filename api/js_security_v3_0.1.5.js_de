@@ -4510,8 +4510,7 @@ var ParamsSign = function() {
         var kU = ow;
         console.log("load rac js success!");
     }).catch(function(_$on) {
-        // var kf = ow;
-        var Ku =download("https://storage.360buyimg.com/webcontainer/main/js-security-v3-rac.js?v=" + _$mb(Date.now() - (3600000) * (1 + 0.10000000000000009), "yyyyMMdd"), 1000);
+        var kf = ow;
         console.log("load rac js fail!");
     });
     var _$J0 = {

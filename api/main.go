@@ -761,10 +761,15 @@ func t1() {
 		}
 	}
 
-	// porj, err := goja.Parse("./js_security_v3_0.1.5.js", string(jsScript2))
-	// if err != nil {
-	// 	panic(err)
-	// }
+	jsScript2, err := os.ReadFile("./js_security_v3_0.1.5.js_de")
+	if err != nil {
+		panic(err)
+	}
+
+	porj, err := goja.Parse("./js_security_v3_0.1.5.js", string(jsScript2))
+	if err != nil {
+		panic(err)
+	}
 	// ctx := context.WithValue(context.Background(), "pre", &_context{
 	// 	pre:     "",
 	// 	replace: make(map[string]*ast.Identifier),
@@ -777,8 +782,8 @@ func t1() {
 	// 	panic(err)
 	// }
 	// os.WriteFile("./js_security_v3_0.1.5.js.ast", projJSON, 0644)
-	// fmt.Println(porj)
-	// return
+	fmt.Println(porj)
+	return
 
 	// [{0 1 98***15 只要***一点 2024-12-08T08:43:17Z 1970-01-01T00:00:00Z 2 0}] <nil>
 
@@ -807,12 +812,12 @@ func t1() {
 		body = []byte(bodyStr)
 
 		replaces := map[string]string{}
-		body = replaceRegexp(body, `(_\$[a-zA-Z][a-zA-Z0-9])\s*=\s*([_a-zA-Z0-9\.]+)([ \t]*[\n,])`, func(matchs [][]byte) []byte {
-			output := "{}" + string(matchs[3])
-			replaces[string(matchs[1])] = string(matchs[2])
+		// body = replaceRegexp(body, `(_\$[a-zA-Z][a-zA-Z0-9])\s*=\s*([_a-zA-Z0-9\.]+)([ \t]*[\n,])`, func(matchs [][]byte) []byte {
+		// 	output := "{}" + string(matchs[3])
+		// 	replaces[string(matchs[1])] = string(matchs[2])
 
-			return []byte(output)
-		})
+		// 	return []byte(output)
+		// })
 
 		for old, new := range replaces {
 			for _, v := range []string{`$`, `(`, `)`, `[`, `]`, `.`, `+`, `-`} {
@@ -870,7 +875,8 @@ func main() {
 		panic(err)
 	}
 
-	// t1()
+	t1()
+	return
 
 	vm := goja.New()
 	// 创建一个缓冲区来存储 console.log 的输出

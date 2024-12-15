@@ -10,8 +10,69 @@ import (
 	"testing"
 
 	"github.com/dop251/goja"
+
+	"github.com/ije/esbuild-internal/ast"
+	esbuild_config "github.com/ije/esbuild-internal/config"
+	"github.com/ije/esbuild-internal/js_parser"
+	"github.com/ije/esbuild-internal/js_printer"
+	"github.com/ije/esbuild-internal/logger"
+	"github.com/ije/esbuild-internal/renamer"
 )
 
+// endsWith returns true if the given string ends with any of the suffixes.
+func endsWith(s string, suffixs ...string) bool {
+	for _, suffix := range suffixs {
+		if strings.HasSuffix(s, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+type out struct {
+	JS string
+}
+
+func test1(filename string) (*out, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	log := logger.NewDeferLog(logger.DeferLogNoVerboseOrDebug, nil)
+	parserOpts := js_parser.OptionsFromConfig(&esbuild_config.Options{
+		JSX: esbuild_config.JSXOptions{
+			Parse: endsWith(filename, ".jsx", ".tsx"),
+		},
+		TS: esbuild_config.TSOptions{
+			Parse: endsWith(filename, ".ts", ".mts", ".cts", ".tsx"),
+		},
+	})
+	tree, ok := js_parser.Parse(log, logger.Source{
+		Index:          0,
+		KeyPath:        logger.Path{Text: "<stdin>"},
+		PrettyPath:     "<stdin>",
+		Contents:       string(data),
+		IdentifierName: "stdin",
+	}, parserOpts)
+	if !ok {
+		return nil, nil
+	}
+
+	symbols := ast.NewSymbolMap(1)
+	symbols.SymbolsForSource[0] = tree.Symbols
+	r := renamer.NewNoOpRenamer(symbols)
+	js := js_printer.Print(tree, symbols, r, js_printer.Options{
+		UnsupportedFeatures: 0,
+		ASCIIOnly:           false,
+	}).JS
+
+	return &out{JS: string(js)}, nil
+}
+func Test_T3(t *testing.T) {
+	fmt.Println(test1("./test.js"))
+	t.Fatal("成功")
+}
 func Test_T2(t *testing.T) {
 	vm := goja.New()
 	jsScript2, _ := os.ReadFile("./getJsToken.js")
