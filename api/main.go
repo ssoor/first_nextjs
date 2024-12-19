@@ -1,13 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math"
 	"net/http"
+	"net/url"
 	"os"
 	"reflect"
 	"regexp"
@@ -870,118 +870,23 @@ func main() {
 	}
 	dbd.SetCookie(string(cookie))
 
-	jsScript2, err := os.ReadFile("./js_security_v3_0.1.5.js_de")
-	if err != nil {
-		panic(err)
+	// t1()
+	// return
+
+	sign := `20241212180613774;vlhq85ffl1zzk143;86b9f;tk03waabd1c2e18nt0qtkVGLHCnsROQJZn80iiWtMlPHcZ03FbV61vcWYb1gFWHSxqTchdAiJFQrN8LRdr-fGd1hhtr2;4aa1deb8ba3973bcaa59def4b04edd6a;4.9;1733997973774;q3EpJfoe6-FNxmoQFSVeznkR-SEjLDIj7SFjLrJp-LojxjJQIeFjLrJp-jpf6L4T1nofKmlfzfIS7Hof4f4f1fVdGGYe0nIS5PYd4jpjxjpPl61SJW1OJrpjh7Jj2jVe0nYTISISJWodyLYeIaFSyTleIWFf0HIT5nVSJSFjLDIj4mFO9m1TJrpjh7Jj0zZd9bIOMWlQCS1U2LFjLDIj1ipjLDrgJLkNqOFPgC0eAGUR7ipjxjZQ8aFQKiEjLrJp-jpQGaEQieVTeipjxjJS7ipjLDrguqpjhrojxjpd2iFjLrpjLDrgJjpjxj5e2iFjLrpjLDrg7nojxjJe2iFjLrpjLDrg7rJdJXYOJipjLrpjh7pfLDIj3XETJrpjLrJp-HoeLDIj4XETJrpjLrJp-jYgLDIj5XETJrpjLrJp-jZe9nIg7jpjxjZf2iFjLrpjLDrg7rJdJ-1OJrpjLrJp-Xojxj5P-ipjLrpjh7pfLDIj-ipjLrpjh7pfLDIjHOEjLrpjLD7NLDIjHyVS3KUSJrpjh7ZMwqJdJrkPJrpjh7Jj0vWe6vmf6rpVLf2YLfVTeqpQGaEQiq5dDe0Q3yVRImVYJrJdJnVO4ipjLD7N;59c847069ae8e2bdb3e161b0b0213c66`
+	bodyJSON := []byte(`{"auctionId":"393229830","auctionProductType":1,"p":2,"ts":1733997973765,"dbdApiVersion":"20200623","mpSource":1,"sourceTag":2}`)
+
+	body := url.Values{
+		"h5st": []string{sign},
+		"body": []string{string(bodyJSON)},
 	}
+	bodyJSON = []byte(body.Encode())
+	bodyJSON = []byte(strings.ReplaceAll(string(bodyJSON), "%3A", ":"))
+	bodyJSON = []byte(strings.ReplaceAll(string(bodyJSON), "%2C", ","))
 
-	t1()
-	return
+	fmt.Println(string(bodyJSON))
 
-	vm := goja.New()
-	// 创建一个缓冲区来存储 console.log 的输出
-	var outputBuffer bytes.Buffer
-	// 定义一个自定义的 console 对象
-	console := map[string]func(call goja.FunctionCall) goja.Value{
-		"log": func(call goja.FunctionCall) goja.Value {
-			// 将输出写入到缓冲区
-			for _, arg := range call.Arguments {
-				outputBuffer.WriteString(arg.String() + " ")
-			}
-			outputBuffer.WriteString("\n")
-			return goja.Undefined()
-		},
-	}
-	// 将 console 对象注入到虚拟机中
-	vm.Set("console", console)
-	// 将 download 方法注入到虚拟机
-	vm.Set("download", download)
-
-	_, err = vm.RunString(string(`
-//模拟旧的 RegExp.$1 等全局属性行为来实现兼容
-	(function () {
-  // 保存原始的 RegExp.prototype.exec 方法
-  const originalExec = RegExp.prototype.exec;
-
-  // 定义兼容层，拦截 exec 调用
-  RegExp.prototype.exec = function (str) {
-    const result = originalExec.call(this, str); // 调用原始方法
-
-    if (result) {
-      // 更新 RegExp 全局属性
-      for (let i = 1; i <= 9; i++) {
-        RegExp[` + "`" + `$${i}` + "`" + `] = result[i] || ""; // 设置 $1, $2, ..., $9
-      }
-    } else {
-      // 如果没有匹配，则清空全局属性
-      for (let i = 1; i <= 9; i++) {
-        RegExp[` + "`" + `$${i}` + "`" + `] = "";
-      }
-    }
-
-    return result;
-  };
-})();
-
-
-window = {document:{querySelector:null}};navigator = {userAgent:"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"}`))
-	if err != nil {
-		fmt.Println(outputBuffer.String())
-		panic(err)
-	}
-	_, err = vm.RunString(string(jsScript2))
-	if err != nil {
-		fmt.Println(outputBuffer.String())
-		panic(err)
-	}
-
-	_, err = vm.RunString(string(`
-	function getJsToken() {
-	        var O = new window.ParamsSign({
-    "appId": "/detail/v2",
-    "debug": false,
-    "preRequest": false
-});
-
-O._debug = true
-
-    	var k = {
-    "functionId": "paipai.auction.current_bid_info",
-    "t": 1734086442007,
-    "appid": "paipai_h5",
-    "body": "a090a65d64307061e1bd2c14979c0e2205a6f7b166a8e5762a7257f54fdd3070"
-}
-		return O.sign(k);
-	}
-	
-	`))
-	if err != nil {
-		panic(err)
-	}
-
-	var getJsToken func(userAgent, url, bizId, eid string) goja.Promise
-	err = vm.ExportTo(vm.Get("getJsToken"), &getJsToken)
-	if err != nil {
-		fmt.Println("Js函数映射到 Go 函数失败！")
-		panic(err)
-	}
-
-	v := getJsToken(
-		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-		"https://paipai.jd.com/auction-detail/393024207",
-		"paipai_sale_pc",
-		"",
-	)
-	v.Result()
-	v2 := v.Result().ToObject(vm)
-
-	fmt.Println(outputBuffer.String())
-	fmt.Println(v2.ToObject(vm).Export())
-	// fmt.Println(dbd.AuctionDetail(393229830))
-	// fmt.Println(dbd.AuctionCurrentPrice(393229882))
-	// fmt.Println(dbd.AuctionPriceRecords(393229882))
-	// fmt.Println(dbd.AuctionPriceInfo(393229882))
-	return
+	// return
 
 	r := gin.Default()
 	r.GET("/product", func(c *gin.Context) {

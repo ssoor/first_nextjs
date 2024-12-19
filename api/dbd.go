@@ -2,6 +2,9 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"dbd/gojs"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -48,6 +51,10 @@ func NewDBD() (*dbdClient, error) {
 
 func (m dbdClient) request(method string, path string, params url.Values, headers http.Header, body io.Reader) (*http.Response, error) {
 	u, err := url.Parse(fmt.Sprintf("https://%s", APIFunctionHost))
+	if err != nil {
+		return nil, err
+	}
+
 	u.Path = path
 	u.RawQuery = params.Encode()
 
@@ -56,6 +63,8 @@ func (m dbdClient) request(method string, path string, params url.Values, header
 		return nil, err
 	}
 	req.Header = headers
+
+	fmt.Println(u.String())
 
 	return m.client.Do(req)
 }
@@ -151,6 +160,113 @@ func (m dbdClient) getApiEIDToken() (*JSToken, error) {
 	return &respStruct.Data, nil
 }
 
+type h5st struct {
+	T          string `json:"t"`
+	AppId      string `json:"appid"`
+	FunctionId string `json:"functionId"`
+	BodyHash   string `json:"body"`
+	Sign       string `json:"h5st"`
+	STE        int64  `json:"_ste"`
+	STK        string `json:"_stk"`
+}
+
+func (m dbdClient) getH5st(params url.Values, body []byte) (*h5st, error) {
+	jsScript2, err := os.ReadFile("./js_security_v3_0.1.5.js")
+	if err != nil {
+		return nil, err
+	}
+
+	runtime, err := gojs.New()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		// fmt.Println(runtime.ConsoleLog())
+	}()
+	vm := runtime.Runtime
+
+	_, err = vm.RunString(string(jsScript2))
+	if err != nil {
+		return nil, err
+	}
+
+	sha256Bin := sha256.Sum256(body)
+	h5stNew := map[string]interface{}{
+		"appId":      "86b9f",
+		"debug":      true,
+		"preRequest": false,
+		// "onSign": func(args goja.FunctionCall) goja.Value {
+		// 	fmt.Println("onSign", args.Arguments[0].ToObject(vm).Export())
+		// 	return goja.Undefined()
+		// },
+		// "onRequestTokenRemotely": func(args goja.FunctionCall) goja.Value {
+		// 	fmt.Println("onRequestTokenRemotely", args.Arguments[0].ToObject(vm).Export())
+		// 	return goja.Undefined()
+		// },
+		// "onRequestToken": func(args goja.FunctionCall) goja.Value {
+		// 	fmt.Println("onRequestToken", args.Arguments[0].ToObject(vm).Export())
+		// 	return goja.Undefined()
+		// },
+	}
+
+	h5stSign := map[string]interface{}{
+		"t":          params.Get("t"),
+		"appid":      params.Get("appid"),
+		"functionId": params.Get("functionId"),
+		"body":       hex.EncodeToString(sha256Bin[:]),
+	}
+
+	_, err = vm.RunString(string(`
+		function getH5st(init, sign) {
+			console.log("getH5st",JSON.stringify(init),JSON.stringify(sign));
+			var t = new Date().getTime()-60000;
+			var O = new window.ParamsSign(init);
+			
+			var cv = {"v":"fbea2b972ec4f9fdc58985bf6ca175b5","t":t,"e":31536000}
+			var wgl = {"v":"3972f1759e9c6333090f380aa016c810","t":t,"e":31536000}
+			localStorage.setItem("WQ_gather_cv1", JSON.stringify(cv))
+			localStorage.setItem("WQ_gather_wgl1", JSON.stringify(wgl))
+
+			localStorage.setItem("WQ_vk1_86b9f_4.9", JSON.stringify({"v":"vlhq85ffl1zzk143","t":1733997973765,"e":31536000}))
+
+			var tk = {"v":"dGswM3djZDQ0MWNlNTE4bklVZ2VYYlgwRXVhUE1VaDhNdmkzUzFmeVJzaUdSX3l6VEJ4dExpZ2h1aDJVRVNiOEFXeEh2c0RPdG5WRnJfTkpDTUZKZmdrZ0NORjM=","t":t,"e":86400}
+			var algo = {"v":"ZnVuY3Rpb24gdGVzdCh0ayxmcCx0cyxhaSxhbGdvKXt2YXIgcmQ9J2F5WFcwUFMyOTFiMSc7dmFyIHN0cj0iIi5jb25jYXQodGspLmNvbmNhdChmcCkuY29uY2F0KHRzKS5jb25jYXQoYWkpLmNvbmNhdChyZCk7cmV0dXJuIGFsZ28uSG1hY01ENShzdHIsdGspO30=","t":t,"e":86400}
+			localStorage.setItem("WQ_dy_tk_s_vlhq85ffl1zzk143", JSON.stringify(tk))
+			localStorage.setItem("WQ_dy_algo_s_vlhq85ffl1zzk143", JSON.stringify(algo))
+
+			var out = O.sign(sign);
+			return out;
+		}
+	`))
+	if err != nil {
+		return nil, err
+	}
+	var getH5st func(init, sign map[string]interface{}) goja.Value
+	err = vm.ExportTo(vm.Get("getH5st"), &getH5st)
+	if err != nil {
+		return nil, err
+	}
+
+	v := getH5st(h5stNew, h5stSign)
+	v2, err := gojs.WaitForPromise(vm, v)
+	if err != nil {
+		return nil, err
+	}
+
+	h5stJson, err := v2.ToObject(vm).MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &h5st{}
+	json.Unmarshal(h5stJson, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
 func (m dbdClient) callFunction(method string, functionId string, bodyParams map[string]interface{}) (reqsp *http.Response, err error) {
 	t := strconv.FormatInt(time.Now().UnixMilli(), 10)
 
@@ -167,10 +283,11 @@ func (m dbdClient) callFunction(method string, functionId string, bodyParams map
 	// params.Set("x-api-eid-token", jsToken.Token)
 
 	headers := http.Header{}
-	headers.Set("Sec-Fetch-Mode", "cors")
-	headers.Set("Content-Type", "application/x-www-form-urlencoded")
-	headers.Set("User-Agent", "jdapp;android;12.0.2;;;M/5.0;appBuild/98787;ef/1;ep/%7B%22hdid%22%3A%22JM9F1ywUPwflvMIpYPok0tt5k9kW4ArJEU3lfLhxBqw%3D%22%2C%22ts%22%3A1685444654944%2C%22ridx%22%3A-1%2C%22cipher%22%3A%7B%22sv%22%3A%22CJC%3D%22%2C%22ad%22%3A%22CtG3YtCyDtc3EJCmC2OyYm%3D%3D%22%2C%22od%22%3A%22CzY5ZJU0CQU3C2OyEJvwYq%3D%3D%22%2C%22ov%22%3A%22CzC%3D%22%2C%22ud%22%3A%22CtG3YtCyDtc3EJCmC2OyYm%3D%3D%22%7D%2C%22ciphertype%22%3A5%2C%22version%22%3A%221.2.0%22%2C%22appname%22%3A%22com.jingdong.app.mall%22%7D;jdSupportDarkMode/0;Mozilla/5.0 (Linux; Android 13; MI 8 Build/TKQ1.220905.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/89.0.4389.72 MQQBrowser/6.2 TBS/046247 Mobile Safari/537.36")
-	headers.Set("Referer", APIReferer)
+	headers.Set("sec-fetch-mode", "cors")
+	headers.Set("sec-ch-ua", `"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"`)
+	headers.Set("content-type", "application/x-www-form-urlencoded")
+	headers.Set("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+	headers.Set("referer", APIReferer)
 
 	bodyJSON := []byte{}
 	if bodyParams != nil {
@@ -180,13 +297,44 @@ func (m dbdClient) callFunction(method string, functionId string, bodyParams map
 		}
 	}
 
-	switch method {
-	case "GET":
-		params.Set("body", string(bodyJSON))
-	case "POST":
-		bodyJSON = []byte(url.Values{"body": []string{string(bodyJSON)}}.Encode())
+	h5st, err := m.getH5st(params, bodyJSON)
+	if err != nil {
+		return nil, err
 	}
 
+	params2 := url.Values{}
+	params2.Set("t", t)
+	params2.Set("appid", "paipai_h5")
+	// params.Set("appid", "paipai_sale_pc")
+	params2.Set("functionId", "dbd.auction.detail.v2")
+
+	// getH5st({
+	// 	"debug": true,
+	// 	"preRequest": false,
+	// 	"appId": "86b9f"},{
+	// 	"functionId": "dbd.auction.detail.v2",
+	// 	"t": "1734597645338",
+	// 	"appid": "paipai_h5",
+	// 	"body": "2fa0fd021188a41acc6a9a732cb663c5c4d6201ac173ca9b1438bc79a96844f0"
+	// })
+	fmt.Println(dbd.getH5st(params2, bodyJSON))
+
+	switch method {
+	case "GET":
+		params.Set("h5st", h5st.Sign)
+		params.Set("body", string(bodyJSON))
+	case "POST":
+		body := url.Values{
+			"h5st": []string{h5st.Sign},
+			"body": []string{string(bodyJSON)},
+		}
+		fmt.Println(body)
+		bodyJSON = []byte(body.Encode())
+	}
+	bodyJSON = []byte(strings.ReplaceAll(string(bodyJSON), "%3A", ":"))
+	bodyJSON = []byte(strings.ReplaceAll(string(bodyJSON), "%2C", ","))
+
+	fmt.Println(string(bodyJSON))
 	return m.request(method, APIFunctionPath, params, headers, bytes.NewBuffer(bodyJSON))
 }
 func (m dbdClient) callFunctionEx(method string, functionId string, bodyParams map[string]interface{}, outResp interface{}) (err error) {
@@ -276,14 +424,18 @@ func (m dbdClient) SetCookie(cookie string) {
 
 func (m dbdClient) AuctionDetail(id int) (*DBDAuctionDetail, error) {
 	body := map[string]interface{}{
-		"t":             time.Now().UnixMilli(),
-		"auctionId":     id,
-		"dbdApiVersion": "20200623",
+		"ts":                 time.Now().UnixMilli(),
+		"auctionId":          strconv.Itoa(id),
+		"dbdApiVersion":      "20200623",
+		"p":                  2,
+		"sourceTag":          2,
+		"mpSource":           1,
+		"auctionProductType": 1,
 	}
 	functionID := "dbd.auction.detail.v2"
 
 	data := DBDAuctionDetail{}
-	if err := m.callFunctionEx("GET", functionID, body, &data); err != nil {
+	if err := m.callFunctionEx("POST", functionID, body, &data); err != nil {
 		return nil, err
 	}
 
